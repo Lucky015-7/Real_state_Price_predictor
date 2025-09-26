@@ -1,49 +1,67 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def load_and_prepare_data(file_path):
-    # Load data with error handling for quotes and commas
+    # Load data with error handling
+    logging.info(f"Loading data from {file_path}")
     df = pd.read_csv(file_path, quotechar='"',
                      escapechar='\\', on_bad_lines='skip')
 
     # Replace 'Unknown' with NaN
     df.replace('Unknown', np.nan, inplace=True)
 
-    # Convert to numeric, clean strings with better error handling
+    # Convert to numeric, clean strings
     for col in ['property-sqft', 'Square Footage', 'price', 'property-beds', 'property-baths', 'Acreage']:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(
                 ',', '').str.extract(r'(\d+\.?\d*)')
-            # Convert to float, NaN for invalid
             df[col] = pd.to_numeric(df[col], errors='coerce')
+            if df[col].isna().any():
+                logging.warning(f"NaN values found in {col} after conversion")
 
-    # Fill missing values without inplace warning
+    # Fill missing values
     numerical_cols = ['price', 'property-beds', 'property-baths',
                       'property-sqft', 'Square Footage', 'Acreage', 'latitude', 'longitude']
-    categorical_cols = ['addressRegion', 'Property Type',
-                        'Basement', 'Fireplace', 'Heating', 'Parking']
+    categorical_cols = ['addressRegion', 'Property Type', 'Basement', 'Fireplace', 'Heating', 'Parking', 'Exterior', 'Exterior Features',
+                        'Features', 'Fireplace Features', 'Flooring', 'Parking Features', 'Roof', 'Sewer', 'Subdivision', 'Type']
 
     for col in numerical_cols:
         if col in df.columns and df[col].isna().any():
-            df[col] = df[col].fillna(df[col].median())
+            median_val = df[col].median()
+            df[col] = df[col].fillna(median_val)
+            logging.info(f"Filled {col} NaNs with median {median_val}")
 
     for col in categorical_cols:
         if col in df.columns and df[col].isna().any():
-            df[col] = df[col].fillna(df[col].mode()[0])
+            mode_val = df[col].mode(
+            )[0] if not df[col].mode().empty else 'Unknown'
+            df[col] = df[col].fillna(mode_val)
+            logging.info(f"Filled {col} NaNs with mode {mode_val}")
 
-    # Remove duplicates
-    df.drop_duplicates(inplace=True)
+    # Remove duplicates with more strict checking
+    initial_rows = len(df)
+    df.drop_duplicates(subset=['latitude', 'longitude', 'price',
+                       'Square Footage'], inplace=True)  # Unique by key fields
+    logging.info(f"Removed {initial_rows - len(df)} duplicate rows")
 
-    # Handle outliers (clip price to 1-99 percentile)
+    # Handle outliers
     if 'price' in df.columns:
         lower, upper = df['price'].quantile([0.01, 0.99])
         df['price'] = df['price'].clip(lower, upper)
+        logging.info(f"Clipped price outliers to range [{lower}, {upper}]")
 
     # Feature Engineering
     if 'price' in df.columns and 'Square Footage' in df.columns and not df['Square Footage'].isna().all():
         df['price_per_sqft'] = df['price'] / df['Square Footage']
+    else:
+        logging.warning("Could not compute price_per_sqft due to missing data")
 
     if 'Fireplace' in df.columns:
         df['has_fireplace'] = df['Fireplace'].apply(
@@ -57,13 +75,14 @@ def load_and_prepare_data(file_path):
     le = LabelEncoder()
     for col in categorical_cols:
         if col in df.columns:
-            # Ensure no NaN before encoding
+            # Final fill before encoding
             df[col] = df[col].fillna(df[col].mode()[0])
             df[col] = le.fit_transform(df[col])
 
-    # Drop irrelevant columns
-    df.drop(columns=['MLS', 'description', 'streetAddress',
-            'addressLocality', 'postalCode'], errors='ignore', inplace=True)
+    # Drop irrelevant or highly missing columns
+    columns_to_drop = ['MLSå¨ #', 'Property Tax', 'description',
+                       'streetAddress', 'addressLocality', 'postalCode']
+    df.drop(columns=columns_to_drop, errors='ignore', inplace=True)
 
     return df
 
