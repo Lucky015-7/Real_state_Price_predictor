@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.cluster import KMeans
@@ -44,17 +45,22 @@ else:
     print("Warning: Required features for clustering not found in numeric data.")
 
 # PCA for dimensionality reduction
+# PCA for dimensionality reduction
 if len(numeric_df.columns) > 1:
-    pca = PCA(n_components=2)
-    pca_features = pca.fit_transform(numeric_df)
-    df_pca = pd.DataFrame(pca_features, columns=['PC1', 'PC2'])
-    plt.figure(figsize=(10, 6))
-    sns.scatterplot(x='PC1', y='PC2', data=df_pca)
-    plt.title('PCA of Features')
-    plt.savefig(
-        r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\visualizations\pca.png")
-    plt.close()
+    # Clean up infinities/NaNs before PCA
+    numeric_df_clean = numeric_df.replace([np.inf, -np.inf], np.nan).dropna()
+
+    if numeric_df_clean.shape[0] > 0 and numeric_df_clean.shape[1] > 1:
+        pca = PCA(n_components=2)
+        pca_features = pca.fit_transform(numeric_df_clean)
+        df_pca = pd.DataFrame(pca_features, columns=['PC1', 'PC2'])
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(x='PC1', y='PC2', data=df_pca)
+        plt.title('PCA of Features')
+        plt.savefig(
+            r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\visualizations\pca.png")
+        plt.close()
+    else:
+        print("Warning: Not enough clean numeric data for PCA.")
 else:
     print("Warning: Insufficient numeric features for PCA.")
-
-print("EDA and visualizations saved.")
