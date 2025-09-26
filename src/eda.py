@@ -5,35 +5,56 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from data_preprocessing import load_and_prepare_data
 
-df = pd.read_csv(r"E:\FDMproject\data\processed_data.csv")  # Use processed
+# Load and preprocess data
+df = load_and_prepare_data(
+    r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\data\cleaned_data.csv")
 
-# Correlation (Mining)
+# Select only numeric columns for correlation
+numeric_df = df.select_dtypes(include=['int64', 'float64'])
+
+# Correlation Heatmap
 plt.figure(figsize=(12, 8))
-sns.heatmap(df.corr(), annot=True, cmap='coolwarm')
+sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', vmin=-1, vmax=1)
 plt.title('Correlation Heatmap')
-plt.savefig(r"E:\FDMproject\visualizations\correlation.png")
+plt.savefig(
+    r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\visualizations\correlation.png")
+plt.close()  # Close figure to free memory
 
-# Clustering (e.g., by price/region)
-features = ['price', 'dist_to_toronto_km']  # Adjust
-kmeans = KMeans(n_clusters=3)
-df['cluster'] = kmeans.fit_predict(df[features])
-sns.scatterplot(x='dist_to_toronto_km', y='price', hue='cluster', data=df)
-plt.title('Clusters by Price and Distance')
-plt.savefig(r"E:\FDMproject\visualizations\clusters.png")
+# Price Distribution
+plt.figure(figsize=(10, 6))
+sns.histplot(numeric_df['price'], bins=30, kde=True)
+plt.title('Price Distribution')
+plt.savefig(
+    r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\visualizations\price_dist.png")
+plt.close()
+
+# Clustering by Price and Square Footage
+features = ['price', 'Square Footage']
+if all(col in numeric_df.columns for col in features):
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    numeric_df['cluster'] = kmeans.fit_predict(numeric_df[features])
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(x='Square Footage', y='price',
+                    hue='cluster', data=numeric_df, palette='deep')
+    plt.title('Price vs Square Footage Clusters')
+    plt.savefig(
+        r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\visualizations\clusters.png")
+    plt.close()
+else:
+    print("Warning: Required features for clustering not found in numeric data.")
 
 # PCA for dimensionality reduction
-pca = PCA(n_components=2)
-pca_features = pca.fit_transform(
-    df.select_dtypes(include=[np.number]).dropna())
-df_pca = pd.DataFrame(pca_features, columns=['PC1', 'PC2'])
-sns.scatterplot(x='PC1', y='PC2', data=df_pca)
-plt.title('PCA of Features')
-plt.savefig(r"E:\FDMproject\visualizations\pca.png")
+if len(numeric_df.columns) > 1:
+    pca = PCA(n_components=2)
+    pca_features = pca.fit_transform(numeric_df)
+    df_pca = pd.DataFrame(pca_features, columns=['PC1', 'PC2'])
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(x='PC1', y='PC2', data=df_pca)
+    plt.title('PCA of Features')
+    plt.savefig(
+        r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\visualizations\pca.png")
+    plt.close()
+else:
+    print("Warning: Insufficient numeric features for PCA.")
 
-# Price by Region (Viz)
-if 'addressRegion' in df.columns:
-    sns.boxplot(x='addressRegion', y='price', data=df)
-    plt.title('Price by Region')
-    plt.savefig(r"E:\FDMproject\visualizations\price_by_region.png")
-
-print("EDA complete. Visuals saved in visualizations folder.")
+print("EDA and visualizations saved.")
