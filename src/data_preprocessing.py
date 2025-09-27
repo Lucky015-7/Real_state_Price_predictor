@@ -76,6 +76,37 @@ def load_and_prepare_data(file_path):
         df['has_garage'] = df['Parking'].str.contains(
             'Garage', na=False).astype(int)
 
+    # Calculate distance to Toronto (if latitude and longitude are available)
+    if 'latitude' in df.columns and 'longitude' in df.columns:
+        def haversine(lat1, lon1, lat2, lon2):
+            """Calculate distance between two points using Haversine formula"""
+            R = 6371  # Earth's radius in kilometers
+            dlat = np.radians(lat2 - lat1)
+            dlon = np.radians(lon2 - lon1)
+            a = np.sin(dlat/2)**2 + np.cos(np.radians(lat1)) * \
+                np.cos(np.radians(lat2)) * np.sin(dlon/2)**2
+            c = 2 * np.arcsin(np.sqrt(a))
+            return R * c
+        
+        # Toronto coordinates
+        toronto_lat, toronto_lon = 43.7, -79.4
+        
+        df['dist_to_toronto_km'] = df.apply(
+            lambda row: haversine(row['latitude'], row['longitude'], toronto_lat, toronto_lon)
+            if pd.notna(row['latitude']) and pd.notna(row['longitude'])
+            else np.nan, axis=1
+        )
+        
+        # Fill any NaN values with median distance
+        if df['dist_to_toronto_km'].isna().any():
+            median_dist = df['dist_to_toronto_km'].median()
+            df['dist_to_toronto_km'] = df['dist_to_toronto_km'].fillna(median_dist)
+            logging.info(f"Filled dist_to_toronto_km NaNs with median {median_dist}")
+    else:
+        logging.warning("Latitude and longitude columns not found. Cannot calculate distance to Toronto.")
+        # Create a default distance column
+        df['dist_to_toronto_km'] = 100.0  # Default distance
+
     le = LabelEncoder()
     for col in categorical_cols:
         if col in df.columns:
@@ -94,9 +125,14 @@ def load_and_prepare_data(file_path):
     return df
 
 
-file_path = r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\data\cleaned_data.csv"
-data = load_and_prepare_data(file_path)
-data.to_csv(r"C:\Users\lakhi\OneDrive\Desktop\IRWAproj\Real_state_Price_predictor\data\processed_data.csv", index=False)
-print("Data preprocessing complete. First 5 rows:")
-print(data.head())
-print("Missing values per column:\n", data.isnull().sum())
+if __name__ == "__main__":
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    input_path = os.path.join(current_dir, '..', 'data', 'cleaned_data.csv')
+    output_path = os.path.join(current_dir, '..', 'data', 'processed_data.csv')
+    
+    data = load_and_prepare_data(input_path)
+    data.to_csv(output_path, index=False)
+    print("Data preprocessing complete. First 5 rows:")
+    print(data.head())
+    print("Missing values per column:\n", data.isnull().sum())
