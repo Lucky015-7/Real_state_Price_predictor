@@ -16,9 +16,8 @@ def train_and_save_model(data_path, model_path):
     """
 
     try:
-        # -----------------------------
         # Load processed dataset
-        # -----------------------------
+
         if not os.path.exists(data_path):
             raise FileNotFoundError(f"Data file not found: {data_path}")
 
@@ -26,9 +25,7 @@ def train_and_save_model(data_path, model_path):
         print(
             f"Loaded dataset with {len(df)} rows and {len(df.columns)} columns")
 
-        # -----------------------------
         # Validate required columns
-        # -----------------------------
         required_columns = [
             'property-beds', 'property-baths', 'Square Footage', 'Acreage',
             'latitude', 'longitude', 'price_per_sqft', 'has_fireplace',
@@ -42,9 +39,8 @@ def train_and_save_model(data_path, model_path):
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
 
-        # -----------------------------
         # Separate features (X) and target (y)
-        # -----------------------------
+
         feature_columns = required_columns[:-1]  # all except 'price'
         X = df[feature_columns]
         y = df['price']
@@ -53,9 +49,8 @@ def train_and_save_model(data_path, model_path):
         print(
             f"Target variable (price) range: ${y.min():,.2f} - ${y.max():,.2f}")
 
-        # -----------------------------
         # Clean the feature matrix
-        # -----------------------------
+
         # Replace infinities with NaN
         X = X.replace([np.inf, -np.inf], np.nan)
         # Fill NaNs with column medians
@@ -66,9 +61,8 @@ def train_and_save_model(data_path, model_path):
             print(
                 f"Warning: {X.isnull().sum().sum()} NaN values remaining after cleaning")
 
-        # -----------------------------
         # Train-test split
-        # -----------------------------
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
@@ -76,9 +70,8 @@ def train_and_save_model(data_path, model_path):
         print(f"Training set: {len(X_train)} samples")
         print(f"Test set: {len(X_test)} samples")
 
-        # -----------------------------
         # Define models
-        # -----------------------------
+
         models = {
             'LinearRegression': LinearRegression(),
             'DecisionTree': DecisionTreeRegressor(random_state=42, max_depth=20),
@@ -89,9 +82,8 @@ def train_and_save_model(data_path, model_path):
         best_r2 = -np.inf  # Initialize with very low R²
         model_results = {}
 
-        # -----------------------------
         # Train & evaluate each model
-        # -----------------------------
+
         for name, model in models.items():
             print(f"\nTraining {name}...")
 
@@ -115,9 +107,8 @@ def train_and_save_model(data_path, model_path):
                     # Train Linear Regression and Decision Tree directly
                     model.fit(X_train, y_train)
 
-                # -----------------------------
                 # Evaluate model
-                # -----------------------------
+
                 y_pred = model.predict(X_test)
 
                 # Avg. absolute error
@@ -144,17 +135,15 @@ def train_and_save_model(data_path, model_path):
                 print(f"Error training {name}: {e}")
                 continue
 
-        # -----------------------------
         # Save the best model
-        # -----------------------------
+
         if best_model is None:
             raise ValueError("No models were successfully trained")
 
         joblib.dump(best_model, model_path)  # Save as pickle file
 
-        # -----------------------------
         # Summary of results
-        # -----------------------------
+
         print(f"\n{'='*50}")
         print(f"TRAINING COMPLETE")
         print(f"{'='*50}")
@@ -175,9 +164,7 @@ def train_and_save_model(data_path, model_path):
         raise
 
 
-# -----------------------------
 # Script entry point
-# -----------------------------
 if __name__ == "__main__":
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
