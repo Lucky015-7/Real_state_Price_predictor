@@ -96,7 +96,7 @@ def train_and_save_model(data_path, model_path):
                         # Min samples to split a node
                         'min_samples_split': [2, 5, 10]
                     }
-                    grid = GridSearchCV(
+                    grid = GridSearchCV(  # tries combinations and picks the best
                         model, param_grid,
                         cv=5, n_jobs=-1, scoring='r2'
                     )
