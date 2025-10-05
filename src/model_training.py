@@ -142,7 +142,7 @@ def train_and_save_model(data_path, model_path):
         print("\nAll Model Results:")
         for name, results in model_results.items():
             print(
-                f"{name:15} - R2: {results['R2']:.4f}, MAE: {results['MAE']:,.2f}, RMSE: {results['RMSE']:,.2f}")
+                f"{name:15} - R2: {results['R2']:.4f}, MAE: ${results['MAE']:,.2f}, RMSE: ${results['RMSE']:,.2f}")
 
         return best_model, model_results
 
