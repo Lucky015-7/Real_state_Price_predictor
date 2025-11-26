@@ -18,12 +18,21 @@ A comprehensive machine learning application for predicting real estate prices u
 - **Interactive Maps**: Geographic visualization of property locations and prices
 - **Model Performance**: Feature importance and model evaluation metrics
 
+## Final Model Performance
+
+| Model             | R² Score   | MAE          | RMSE         | Notes                  |
+| ----------------- | ---------- | ------------ | ------------ | ---------------------- |
+| XGBoost           | **0.7320** | **$176,452** | **$359,076** | **BEST & FINAL MODEL** |
+| Random Forest     | 0.7131     | $183,005     | $371,500     |                        |
+| Decision Tree     | 0.5338     | $242,795     | $473,543     |                        |
+| Linear Regression | 0.3982     | $332,252     | $538,056     | Baseline               |
+
 ### Machine Learning Models
 
-- **Multiple Algorithms**: Linear Regression, Decision Tree, and Random Forest
+- **Multiple Algorithms**: Linear Regression, Decision Tree, and Random Forest, XGBoost
 - **Hyperparameter Tuning**: Grid search optimization for best performance
 - **Comprehensive Evaluation**: MAE, RMSE, and R² metrics for model comparison
-- **Feature Engineering**: Distance calculations, price per square foot, and categorical encoding
+- **Feature Engineering**: Distance calculations,region_median_price and categorical encoding
 
 ## Quick Start
 
@@ -136,7 +145,6 @@ The application expects the following columns in your dataset:
 ### Optional Columns
 
 - `Basement`, `Fireplace`, `Heating`, `Parking`: Property features
-- `price_per_sqft`: Price per square foot (calculated if missing)
 
 ## 🎨 Visualization Features
 

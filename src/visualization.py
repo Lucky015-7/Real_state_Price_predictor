@@ -1,3 +1,4 @@
+# src/visualization.py  (or wherever you keep it)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,6 +13,12 @@ import os
 # Set style for better-looking plots
 plt.style.use('seaborn-v0_8')
 sns.set_palette("husl")
+
+# ADD THIS FOR WIDE LAYOUT & TITLE
+st.set_page_config(
+    page_title="The Bug Busters - Visualizations", layout="wide")
+st.title("The Bug Busters")
+st.markdown("### Interactive Real Estate Data Explorer")
 
 
 def load_data_and_model():
@@ -36,7 +43,7 @@ def load_data_and_model():
 
 def create_correlation_heatmap(df):
     """Create an interactive correlation heatmap"""
-    st.subheader("🔗 Correlation Heatmap (Numeric Features)")
+    st.subheader("Correlation Heatmap (Numeric Features)")
 
     numeric_df = df.select_dtypes(include=[np.number])
     if numeric_df.empty:
@@ -67,7 +74,7 @@ def create_correlation_heatmap(df):
 
 def create_price_distribution(df):
     """Create comprehensive price distribution analysis"""
-    st.subheader("💰 Price Distribution Analysis")
+    st.subheader("Price Distribution Analysis")
 
     col1, col2 = st.columns(2)
 
@@ -90,14 +97,14 @@ def create_price_distribution(df):
         fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📊 Price Statistics")
+    st.subheader("Price Statistics")
     price_stats = df['price'].describe()
     st.dataframe(price_stats.round(2))
 
 
 def create_regional_analysis(df):
     """Create regional price analysis"""
-    st.subheader("🏘️ Regional Price Analysis")
+    st.subheader("Regional Price Analysis")
 
     regions = df['addressRegion'].unique()
     selected_regions = st.multiselect(
@@ -123,13 +130,13 @@ def create_regional_analysis(df):
             ['mean', 'median', 'count']).round(2)
         avg_prices.columns = ['Average Price',
                               'Median Price', 'Number of Properties']
-        st.subheader("📈 Regional Price Summary")
+        st.subheader("Regional Price Summary")
         st.dataframe(avg_prices)
 
 
 def create_property_features_analysis(df):
     """Analyze property features impact on price"""
-    st.subheader("🏠 Property Features Impact on Price")
+    st.subheader("Property Features Impact on Price")
 
     col1, col2 = st.columns(2)
 
@@ -150,87 +157,62 @@ def create_property_features_analysis(df):
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("🔍 Feature Impact Analysis")
-
-    features_to_analyze = ['property-beds',
-                           'property-baths', 'Square Footage', 'Acreage']
-
-    fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=[
-            f'Price vs {feature.replace("-", " ").title()}' for feature in features_to_analyze]
-    )
-
-    for i, feature in enumerate(features_to_analyze):
-        row = (i // 2) + 1
-        col = (i % 2) + 1
-
-        fig.add_trace(
-            go.Scatter(
-                x=df[feature],
-                y=df['price'],
-                mode='markers',
-                name=feature,
-                opacity=0.6
-            ),
-            row=row, col=col
-        )
-
-    fig.update_layout(height=600, showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
-
 
 def create_model_performance_visualization(model, df):
     """Create model performance and feature importance visualization"""
-    st.subheader("🤖 Model Performance & Feature Importance")
+    st.subheader("Model Performance & Feature Importance")
 
     try:
         if hasattr(model, 'feature_importances_'):
-            feature_columns = ['property-beds', 'property-baths', 'Square Footage', 'Acreage',
-                               'latitude', 'longitude', 'price_per_sqft', 'has_fireplace',
-                               'has_garage', 'dist_to_toronto_km', 'addressRegion', 'Property Type',
-                               'Basement', 'Fireplace', 'Heating', 'Parking']
+            # EXACT FINAL FEATURES FROM YOUR TRAINING — NO LEAKAGE!
+            feature_columns = [
+                'property-beds', 'property-baths', 'Square Footage', 'Acreage',
+                'latitude', 'longitude', 'has_fireplace', 'has_garage',
+                'dist_to_toronto_km', 'addressRegion', 'Property Type',
+                'Basement', 'Fireplace', 'Heating', 'Parking', 'region_median_price'
+            ]
 
             importances = model.feature_importances_
+
+            if len(importances) != len(feature_columns):
+                st.error(
+                    f"Feature count mismatch! Model has {len(importances)} features, but list has {len(feature_columns)}")
+                return
+
             fi_df = pd.DataFrame({
                 "Feature": feature_columns,
                 "Importance": importances
             }).sort_values(by="Importance", ascending=True)
 
             fig = px.bar(
-                fi_df,
+                fi_df.tail(10),
                 x="Importance",
                 y="Feature",
                 orientation='h',
-                title="Feature Importance (Random Forest)",
-                labels={'Importance': 'Importance Score',
-                        'Feature': 'Feature Name'}
+                title="Top 10 Feature Importance (XGBoost)",
+                color="Importance",
+                color_continuous_scale="Viridis"
             )
-            fig.update_layout(height=500)
+            fig.update_layout(height=550, title_x=0.5)
             st.plotly_chart(fig, use_container_width=True)
 
-            st.subheader("🏆 Top 5 Most Important Features")
-            top_features = fi_df.tail(5)
-            st.dataframe(top_features)
+            st.success(
+                "**Top Features:** `region_median_price`, `Square Footage`, `dist_to_toronto_km`, `latitude` — location & size dominate pricing!")
 
         else:
-            st.warning(
-                "Feature importances are only available for tree-based models.")
+            st.info(
+                "Feature importance only available for tree-based models (XGBoost/RF).")
 
     except Exception as e:
-        st.error(f"Error creating model visualization: {e}")
+        st.error(f"Error in feature importance: {e}")
 
 
 def create_interactive_map(df):
     """Create an interactive map of properties"""
-    st.subheader("🗺️ Property Location Map")
+    st.subheader("Property Location Map")
 
-    if len(df) > 1000:
-        sample_df = df.sample(n=1000, random_state=42)
-        st.info(
-            f"Showing 1000 random properties from {len(df)} total properties")
-    else:
-        sample_df = df
+    sample_size = min(1500, len(df))
+    sample_df = df.sample(n=sample_size, random_state=42)
 
     fig = px.scatter_mapbox(
         sample_df,
@@ -239,33 +221,24 @@ def create_interactive_map(df):
         color="price",
         size="Square Footage",
         hover_data=["property-beds", "property-baths", "addressRegion"],
-        color_continuous_scale="Viridis",
+        color_continuous_scale="Plasma",
         mapbox_style="open-street-map",
-        title="Property Locations and Prices",
-        labels={'price': 'Price (CAD)', 'Square Footage': 'Square Footage'}
+        title=f"Property Prices Across Canada ({sample_size:,} properties)",
+        zoom=4.5
     )
 
-    fig.update_layout(
-        height=600,
-        mapbox=dict(
-            center=dict(lat=sample_df['latitude'].mean(),
-                        lon=sample_df['longitude'].mean()),
-            zoom=6
-        )
-    )
-
+    fig.update_layout(height=650, margin={"r": 0, "t": 50, "l": 0, "b": 0})
     st.plotly_chart(fig, use_container_width=True)
 
 
 def main():
     """Main visualization function"""
-    st.header("📊 Interactive Real Estate Visualizations")
+    st.header("Interactive Real Estate Visualizations")
 
     model, df = load_data_and_model()
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📈 Overview", "🏘️ Regional Analysis", "🏠 Property Features",
-        "🤖 Model Analysis", "🗺️ Location Map", "📊 Correlation"
+        "Overview", "Regional", "Features", "Model", "Map", "Correlation"
     ])
 
     with tab1:

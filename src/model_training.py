@@ -13,147 +13,107 @@ import joblib
 
 
 def train_and_save_model(data_path, model_path):
-    """
-    Load preprocessed data, train multiple models (Linear Regression, Decision Tree, 
-    Random Forest, SVR, KNN, XGBoost), evaluate them, pick the best model based on R² score, 
-    and save it as a .pkl file.
-    """
+    print("Loading processed data...")
+    df = pd.read_csv(data_path)
 
-    try:
-        # Load processed dataset
-        if not os.path.exists(data_path):
-            raise FileNotFoundError(f"Data file not found: {data_path}")
+    # Drop any ID columns
+    df.drop(columns=[c for c in ['MLS', 'MLSå¨ #', 'id']
+            if c in df.columns], inplace=True, errors='ignore')
 
-        df = pd.read_csv(data_path)
-        print(
-            f"Loaded dataset with {len(df)} rows and {len(df.columns)} columns")
+    feature_columns = [
+        'property-beds', 'property-baths', 'Square Footage', 'Acreage',
+        'latitude', 'longitude', 'has_fireplace', 'has_garage',
+        'dist_to_toronto_km', 'addressRegion', 'Property Type',
+        'Basement', 'Fireplace', 'Heating', 'Parking', 'region_median_price'
+    ]
 
-        # Validate required columns
-        required_columns = [
-            'property-beds', 'property-baths', 'Square Footage', 'Acreage',
-            'latitude', 'longitude', 'price_per_sqft', 'has_fireplace',
-            'has_garage', 'dist_to_toronto_km', 'addressRegion', 'Property Type',
-            'Basement', 'Fireplace', 'Heating', 'Parking', 'price'  # Target
-        ]
+    X = df[feature_columns].copy()
+    numeric_cols = X.select_dtypes(include='number').columns
+    X[numeric_cols] = X[numeric_cols].fillna(X[numeric_cols].median())
 
-        # Check for missing columns
-        missing_columns = [
-            col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
+    X_train, X_test, y_train_raw, y_test_raw = train_test_split(
+        X, df['price'], test_size=0.2, random_state=42)
 
-        # Separate features (X) and target (y)
-        feature_columns = required_columns[:-1]  # all except 'price'
-        X = df[feature_columns]
-        y = df['price']
+    # Log transform for tree-based models (BEST PERFORMANCE)
+    y_train_log = np.log1p(y_train_raw)
+    y_test_log = np.log1p(y_test_raw)
 
-        print(f"Training with {len(feature_columns)} features")
-        print(
-            f"Target variable (price) range: ${y.min():,.2f} - ${y.max():,.2f}")
+    models = {
+        # Uses raw price
+        'LinearRegression': (LinearRegression(), y_train_raw, y_test_raw),
+        'DecisionTree': (DecisionTreeRegressor(random_state=42, max_depth=20), y_train_log, y_test_log),
+        'RandomForest': (RandomForestRegressor(random_state=42, n_jobs=-1), y_train_log, y_test_log),
+        'SVR': (SVR(C=1000, gamma='scale'), y_train_log, y_test_log),
+        'KNN': (KNeighborsRegressor(n_neighbors=7), y_train_log, y_test_log),
+        'XGBoost': (XGBRegressor(n_estimators=800, learning_rate=0.05, max_depth=9,
+                                 subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1),
+                    y_train_log, y_test_log)
+    }
 
-        # Clean the feature matrix
-        X = X.replace([np.inf, -np.inf], np.nan)
-        X = X.fillna(X.median())
+    best_r2 = -999
+    best_model = None
+    results = {}
 
-        if X.isnull().sum().sum() > 0:
+    for name, (model, y_train, y_test) in models.items():
+        print(f"Training {name}...", end="")
+
+        try:
+            if name == 'RandomForest':
+                grid = GridSearchCV(model, {
+                    'n_estimators': [100, 200],
+                    'max_depth': [None, 20],
+                    'min_samples_split': [2, 5]
+                }, cv=3, scoring='r2', n_jobs=-1)
+                grid.fit(X_train, y_train)
+                model = grid.best_estimator_
+                print(f"\nBest RF params: {grid.best_params_}")
+            else:
+                model.fit(X_train, y_train)
+                print()
+
+            pred = model.predict(X_test)
+            if name != 'LinearRegression':
+                pred = np.expm1(pred)  # Reverse log
+                actual = np.expm1(y_test)
+            else:
+                actual = y_test
+
+            r2 = r2_score(actual, pred)
+            mae = mean_absolute_error(actual, pred)
+            rmse = np.sqrt(mean_squared_error(actual, pred))
+
+            print(f"{name} → R²: {r2:.4f} | MAE: ${mae:,.0f} | RMSE: ${rmse:,.0f}")
+            results[name] = {'R2': r2, 'MAE': mae, 'RMSE': rmse}
+
+            if r2 > best_r2:
+                best_r2 = r2
+                best_model = model
+
+        except Exception as e:
+            print(f"\n{name} failed: {e}")
+
+    joblib.dump(best_model, model_path)
+    print(
+        f"\nBEST MODEL: {best_model.__class__.__name__} → R² = {best_r2:.4f}")
+    print(f"Model saved → {model_path}")
+
+    # FINAL GOLD TABLE
+    print("\n" + "="*95)
+    print("           THE BUG BUSTERS - FINAL RESULTS ")
+    print("="*95)
+    print(f"{'Model':<18} {'R²':<10} {'MAE':<18} {'RMSE'}")
+    print("-"*95)
+    for name in ['LinearRegression', 'DecisionTree', 'RandomForest', 'SVR', 'KNN', 'XGBoost']:
+        if name in results:
+            r = results[name]
+            star = " ← BEST" if r['R2'] == max(
+                [v['R2'] for v in results.values()]) else ""
             print(
-                f"Warning: {X.isnull().sum().sum()} NaN values remaining after cleaning")
-
-        # Train-test split
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-
-        print(f"Training set: {len(X_train)} samples")
-        print(f"Test set: {len(X_test)} samples")
-
-        # Define models
-        models = {
-            'LinearRegression': LinearRegression(),
-            'DecisionTree': DecisionTreeRegressor(random_state=42, max_depth=20),
-            'RandomForest': RandomForestRegressor(random_state=42, n_estimators=100),
-            'SVR': SVR(kernel='rbf', C=100, gamma=0.1),
-            'KNN': KNeighborsRegressor(n_neighbors=5),
-            'XGBoost': XGBRegressor(random_state=42, n_estimators=200, learning_rate=0.1, max_depth=6)
-        }
-
-        best_model = None
-        best_r2 = -np.inf
-        model_results = {}
-
-        # Train & evaluate each model
-        for name, model in models.items():
-            print(f"\nTraining {name}...")
-
-            try:
-                # RandomForest with GridSearchCV
-                if name == 'RandomForest':
-                    param_grid = {
-                        'n_estimators': [50, 100, 200],
-                        'max_depth': [10, 20, None],
-                        'min_samples_split': [2, 5, 10]
-                    }
-                    grid = GridSearchCV(model, param_grid,
-                                        cv=5, n_jobs=-1, scoring='r2')
-                    grid.fit(X_train, y_train)
-                    model = grid.best_estimator_
-                    print(
-                        f"Best parameters for RandomForest: {grid.best_params_}")
-                else:
-                    model.fit(X_train, y_train)
-
-                # Evaluate
-                y_pred = model.predict(X_test)
-                mae = mean_absolute_error(y_test, y_pred)
-                rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-                r2 = r2_score(y_test, y_pred)
-
-                model_results[name] = {
-                    'MAE': mae,
-                    'RMSE': rmse,
-                    'R2': r2,
-                    'model': model
-                }
-
-                print(f"{name} - MAE: ${mae:,.2f}, RMSE: ${rmse:,.2f}, R2: {r2:.4f}")
-
-                if r2 > best_r2:
-                    best_r2 = r2
-                    best_model = model
-
-            except Exception as e:
-                print(f"Error training {name}: {e}")
-                continue
-
-        # Save the best model
-        if best_model is None:
-            raise ValueError("No models were successfully trained")
-
-        joblib.dump(best_model, model_path)
-
-        # Print results
-        print(f"\n{'='*50}")
-        print(f"TRAINING COMPLETE")
-        print(f"{'='*50}")
-        print(
-            f"Best model: {best_model.__class__.__name__} with R2 = {best_r2:.4f}")
-        print(f"Model saved to: {model_path}")
-
-        print("\nAll Model Results:")
-        for name, results in model_results.items():
-            print(
-                f"{name:15} - R2: {results['R2']:.4f}, MAE: ${results['MAE']:,.2f}, RMSE: ${results['RMSE']:,.2f}")
-
-        return best_model, model_results
-
-    except Exception as e:
-        print(f"Error in model training: {e}")
-        raise
+                f"{name:<18} {r['R2']:.4f}     ${r['MAE']:,.0f}        ${r['RMSE']:,.0f}{star}")
 
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     data_path = os.path.join(current_dir, '..', 'data', 'processed_data.csv')
     model_path = os.path.join(current_dir, 'model.pkl')
-
     train_and_save_model(data_path, model_path)
