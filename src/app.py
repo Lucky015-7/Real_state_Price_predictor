@@ -6,6 +6,42 @@ import numpy as np
 import os
 from visualization import show_visualizations
 
+# ────────────────────────── THE BUG BUSTERS — EPIC UI UPGRADE ──────────────────────────
+st.set_page_config(
+    page_title="The Bug Busters | Real Estate Price Predictor",
+    page_icon="house",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS — makes it look like a $10,000 app
+st.markdown("""
+<style>
+    .main {background-color: #0e1117; color: #fafafa;}
+    .stButton>button {
+        background: linear-gradient(90deg, #ff6b6b, #feca57);
+        color: white; font-weight: bold; border: none; border-radius: 12px;
+        padding: 12px 24px; height: 60px; font-size: 18px;
+    }
+    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select {
+        background-color: #262730; color: white; border-radius: 10px;
+    }
+    h1, h2, h3 {font-family: 'Montserrat', sans-serif; color: #feca57;}
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# EPIC TITLE
+st.markdown("""
+<div style="text-align: center; padding: 30px;">
+    <h2 style="color: #feca57;"> Real Estate Price Predictor</h2>
+</div>
+""", unsafe_allow_html=True)
+# ─────────────────────────────────────────────────────────────────────────────────────
+
 
 def load_model_and_data():
     try:
