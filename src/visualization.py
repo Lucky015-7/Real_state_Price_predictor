@@ -189,7 +189,7 @@ def create_model_performance_visualization(model, df):
                 x="Importance",
                 y="Feature",
                 orientation='h',
-                title="Top 10 Feature Importance (XGBoost)",
+                title="Top 10 Feature Importance",
                 color="Importance",
                 color_continuous_scale="Viridis"
             )
