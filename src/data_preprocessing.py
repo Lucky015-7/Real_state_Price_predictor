@@ -128,10 +128,6 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("="*60)
     print(f"   Shape: {processed_data.shape}")
-    print(f"   Final R² expected: 0.85 - 0.88+")
-    print(f"   Leakage: 100% REMOVED")
-    print(f"   Ethical boost: region_median_price ADDED")
     print("="*60)
-    print("Sample with region_median_price:")
     print(processed_data[['price', 'Square Footage',
           'addressRegion', 'region_median_price']].head(10))
